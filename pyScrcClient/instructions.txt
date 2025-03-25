@@ -1,0 +1,28 @@
+This textfile will be shared with you as well
+
+
+As a first step we need to install torcs download it from the link given below
+
+Download torcs exe from this link
+
+https://sourceforge.net/projects/cig/files/SCR%20Championship/
+
+
+
+The third and the last step is to download the client lets say we can download the python client and lets try connecting it
+
+Download the python client
+https://github.com/lanquarden/pyScrcClient/tree/master/src
+
+
+
+As the second step we need to patch torcs you can download the patch from the link 
+given below this patch has to be extracted into the installation directory of torcs
+
+Download the patch
+
+https://sourceforge.net/projects/cig/files/SCR%20Championship/
+
+
+
+Now try running torcs 
