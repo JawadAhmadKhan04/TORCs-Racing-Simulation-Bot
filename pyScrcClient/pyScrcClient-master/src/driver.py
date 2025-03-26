@@ -3,6 +3,9 @@ import msgParser
 import carState
 import carControl
 import pygame
+import csv
+import os
+import re
 
 class Driver(object):
     '''
@@ -13,9 +16,21 @@ class Driver(object):
         '''Constructor'''
         
         self.logs_data = "data_set.txt"
-        with open(self.logs_data, "w") as f:
-            f.write("Sensor Log Start\n")
-        
+        if not os.path.exists(self.logs_data):
+            with open(self.logs_data, "w") as f:
+                f.write("Sensor Log Start\n")
+            
+        self.logs_data_csv = "data_set.csv"
+        if not os.path.exists(self.logs_data_csv):
+            with open(self.logs_data_csv, "w", newline="") as f:
+                csv_writer = csv.writer(f)
+                csv_writer.writerow(["angle", "curLapTime", "damage", "distFromStart", "distRaced", 
+                                    "fuel", "gear", "lastLapTime", "racePos", "rpm", "speedX", "speedY", 
+                                    "speedZ", "trackPos", "z"] + 
+                                    [f"opponent_{i}" for i in range(36)] + 
+                                    [f"track_{i}" for i in range(19)] + 
+                                    [f"wheelSpinVel_{i}" for i in range(4)] + 
+                                    [f"focus_{i}" for i in range(5)])
         pygame.init()
         
         self.WARM_UP = 0
@@ -56,6 +71,51 @@ class Driver(object):
         
         return self.parser.stringify({'init': self.angles})
     
+    def parse_message(self, msg):
+        """Parses sensor data and returns a structured list."""
+        try:
+            matches = re.findall(r"\((\w+)((?:\s-?\d+\.?\d*e?-?\d*)+)\)", msg)
+            parsed_data = {key: value.strip().split() for key, value in matches}
+
+            # Convert single-value lists to scalar
+            for key in parsed_data:
+                if len(parsed_data[key]) == 1:
+                    parsed_data[key] = parsed_data[key][0]
+
+            # Extract specific keys
+            angle = parsed_data.get("angle", 0)
+            curLapTime = parsed_data.get("curLapTime", 0)
+            damage = parsed_data.get("damage", 0)
+            distFromStart = parsed_data.get("distFromStart", 0)
+            distRaced = parsed_data.get("distRaced", 0)
+            fuel = parsed_data.get("fuel", 0)
+            gear = parsed_data.get("gear", 0)
+            lastLapTime = parsed_data.get("lastLapTime", 0)
+            racePos = parsed_data.get("racePos", 0)
+            rpm = parsed_data.get("rpm", 0)
+            speedX = parsed_data.get("speedX", 0)
+            speedY = parsed_data.get("speedY", 0)
+            speedZ = parsed_data.get("speedZ", 0)
+            trackPos = parsed_data.get("trackPos", 0)
+            z = parsed_data.get("z", 0)
+
+            # Extract list values (ensure they have correct lengths)
+            opponents = parsed_data.get("opponents", [200]*36)[:36]
+            track = parsed_data.get("track", [0]*19)[:19]
+            wheelSpinVel = parsed_data.get("wheelSpinVel", [0]*4)[:4]
+            focus = parsed_data.get("focus", [-1]*5)[:5]
+
+            # Flatten the data into a row
+            row = [angle, curLapTime, damage, distFromStart, distRaced, fuel, gear, lastLapTime, 
+                   racePos, rpm, speedX, speedY, speedZ, trackPos, z] + \
+                   opponents + track + wheelSpinVel + focus
+
+            return row
+
+        except Exception as e:
+            print(f"Error parsing message: {e}")
+            return None
+    
     def drive(self, msg):
         self.state.setFromMsg(msg)
         
@@ -68,6 +128,11 @@ class Driver(object):
         with open(self.logs_data, "a") as f:
             f.write(msg + "\n")
 
+        parsed_data = self.parse_message(msg)
+        if parsed_data:
+            with open(self.logs_data_csv, "a", newline="") as f:
+                csv_writer = csv.writer(f)
+                csv_writer.writerow(parsed_data)
         
         self.controls()
         
