@@ -4,6 +4,7 @@ import carState
 import carControl
 import pygame
 import csv
+import time
 import os
 import re
 
@@ -32,6 +33,10 @@ class Driver(object):
                                     [f"wheelSpinVel_{i}" for i in range(4)] + 
                                     [f"focus_{i}" for i in range(5)])
         pygame.init()
+        
+        self.gear_change_delay = 500
+        self.last_gear_change = 0  # Store last gear change time
+
         
         self.WARM_UP = 0
         self.QUALIFYING = 1
@@ -183,16 +188,31 @@ class Driver(object):
             if hasattr(self.control, 'setBrake'):
                 self.control.setBrake(0)
 
-        # Manual gear shifting
+# Manual gear shifting
         current_gear = self.state.getGear()
+        current_time = pygame.time.get_ticks()  # Get current time in milliseconds
 
-        if keys[pygame.K_z]:  # Gear Up
-            new_gear = min(current_gear + 1, 6)  # Max gear limit
-            self.control.setGear(new_gear)
+        if current_time - self.last_gear_change >= self.gear_change_delay:
+            if keys[pygame.K_z]:  # Gear Up
+                new_gear = min(current_gear + 1, 6)  # Max gear limit
+                self.control.setGear(new_gear)
+                self.last_gear_change = current_time  # Update last change time
 
-        if keys[pygame.K_x]:  # Gear Down
-            new_gear = max(current_gear - 1, 1)  # Min gear limit
-            self.control.setGear(new_gear)
+            if keys[pygame.K_x]:  # Gear Down
+                new_gear = max(current_gear - 1, 1)  # Min gear limit
+                self.control.setGear(new_gear)
+                self.last_gear_change = current_time  # Update last change time
+
+        
+
+        
+        # if keys[pygame.K_z]:  # Gear Up
+        #     new_gear = min(current_gear + 1, 6)  # Max gear limit
+        #     self.control.setGear(new_gear)
+
+        # if keys[pygame.K_x]:  # Gear Down
+        #     new_gear = max(current_gear - 1, 1)  # Min gear limit
+        #     self.control.setGear(new_gear)
 
         return self.control.toMsg()
 
@@ -242,7 +262,8 @@ class Driver(object):
         
     def onShutDown(self):
         print("Shutting down")
-        pass
+        pygame.quit()
+
     
     def onRestart(self):
         print("Restarting")
