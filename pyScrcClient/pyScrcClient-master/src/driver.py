@@ -199,7 +199,7 @@ class Driver(object):
                 self.last_gear_change = current_time  # Update last change time
 
             if keys[pygame.K_x]:  # Gear Down
-                new_gear = max(current_gear - 1, 1)  # Min gear limit
+                new_gear = max(current_gear - 1, -1)  # Min gear limit
                 self.control.setGear(new_gear)
                 self.last_gear_change = current_time  # Update last change time
 
