@@ -1,4 +1,3 @@
-
 import msgParser
 import carState
 import carControl
@@ -16,22 +15,28 @@ class Driver(object):
     def __init__(self, stage):
         '''Constructor'''
         
-        self.logs_data = "data_set.txt"
-        if not os.path.exists(self.logs_data):
-            with open(self.logs_data, "w") as f:
-                f.write("Sensor Log Start\n")
-            
-        self.logs_data_csv = "data_set.csv"
+        self.logs_data_csv = "dataset.csv"
         if not os.path.exists(self.logs_data_csv):
             with open(self.logs_data_csv, "w", newline="") as f:
                 csv_writer = csv.writer(f)
-                csv_writer.writerow(["angle", "curLapTime", "damage", "distFromStart", "distRaced", 
-                                    "fuel", "gear", "lastLapTime", "racePos", "rpm", "speedX", "speedY", 
-                                    "speedZ", "trackPos", "z"] + 
-                                    [f"opponent_{i}" for i in range(36)] + 
-                                    [f"track_{i}" for i in range(19)] + 
-                                    [f"wheelSpinVel_{i}" for i in range(4)] + 
-                                    [f"focus_{i}" for i in range(5)])
+                csv_writer.writerow([
+                    "timestamp", "angle", "curLapTime", "damage", "distFromStart", "distRaced",
+                    "fuel", "gear", "lastLapTime", "racePos", "rpm", "speedX", "speedY", "speedZ",
+                    "trackPos", "z", "focus_0", "focus_1", "focus_2", "focus_3", "focus_4",
+                    "track_0", "track_1", "track_2", "track_3", "track_4", "track_5", "track_6",
+                    "track_7", "track_8", "track_9", "track_10", "track_11", "track_12", "track_13",
+                    "track_14", "track_15", "track_16", "track_17", "track_18",
+                    "opponent_0", "opponent_1", "opponent_2", "opponent_3", "opponent_4",
+                    "opponent_5", "opponent_6", "opponent_7", "opponent_8", "opponent_9",
+                    "opponent_10", "opponent_11", "opponent_12", "opponent_13", "opponent_14",
+                    "opponent_15", "opponent_16", "opponent_17", "opponent_18", "opponent_19",
+                    "opponent_20", "opponent_21", "opponent_22", "opponent_23", "opponent_24",
+                    "opponent_25", "opponent_26", "opponent_27", "opponent_28", "opponent_29",
+                    "opponent_30", "opponent_31", "opponent_32", "opponent_33", "opponent_34",
+                    "opponent_35",
+                    "wheelSpinVel_0", "wheelSpinVel_1", "wheelSpinVel_2", "wheelSpinVel_3",
+                    "accel", "brake", "clutch", "steer", "inputs"
+                ])
         pygame.init()
         
         self.gear_change_delay = 500
@@ -87,14 +92,24 @@ class Driver(object):
                 if len(parsed_data[key]) == 1:
                     parsed_data[key] = parsed_data[key][0]
 
-            # Extract specific keys
+            # Get current timestamp
+            timestamp = time.time()
+
+            # Extract control values
+            accel = self.control.getAccel()
+            brake = self.control.getBrake() if hasattr(self.control, 'getBrake') else 0
+            gear = self.control.getGear()
+            clutch = self.control.getClutch() if hasattr(self.control, 'getClutch') else 0
+            steer = self.control.getSteer()
+            inputs = 0  # Placeholder for inputs
+
+            # Extract sensor values
             angle = parsed_data.get("angle", 0)
             curLapTime = parsed_data.get("curLapTime", 0)
             damage = parsed_data.get("damage", 0)
             distFromStart = parsed_data.get("distFromStart", 0)
             distRaced = parsed_data.get("distRaced", 0)
             fuel = parsed_data.get("fuel", 0)
-            gear = parsed_data.get("gear", 0)
             lastLapTime = parsed_data.get("lastLapTime", 0)
             racePos = parsed_data.get("racePos", 0)
             rpm = parsed_data.get("rpm", 0)
@@ -104,16 +119,30 @@ class Driver(object):
             trackPos = parsed_data.get("trackPos", 0)
             z = parsed_data.get("z", 0)
 
-            # Extract list values (ensure they have correct lengths)
-            opponents = parsed_data.get("opponents", [200]*36)[:36]
-            track = parsed_data.get("track", [0]*19)[:19]
-            wheelSpinVel = parsed_data.get("wheelSpinVel", [0]*4)[:4]
-            focus = parsed_data.get("focus", [-1]*5)[:5]
+            # Extract focus values
+            focus = parsed_data.get("focus", [0]*5)[:5]
+            focus = focus + [0] * (5 - len(focus))  # Pad with zeros if needed
 
-            # Flatten the data into a row
-            row = [angle, curLapTime, damage, distFromStart, distRaced, fuel, gear, lastLapTime, 
-                   racePos, rpm, speedX, speedY, speedZ, trackPos, z] + \
-                   opponents + track + wheelSpinVel + focus
+            # Extract track values
+            track = parsed_data.get("track", [0]*19)[:19]
+            track = track + [0] * (19 - len(track))  # Pad with zeros if needed
+
+            # Extract opponent values
+            opponents = parsed_data.get("opponents", [200]*36)[:36]
+            opponents = opponents + [200] * (36 - len(opponents))  # Pad with 200 if needed
+
+            # Extract wheel spin velocities
+            wheelSpinVel = parsed_data.get("wheelSpinVel", [0]*4)[:4]
+            wheelSpinVel = wheelSpinVel + [0] * (4 - len(wheelSpinVel))  # Pad with zeros if needed
+
+            # Create row with all values in the specified order
+            row = [
+                timestamp, angle, curLapTime, damage, distFromStart, distRaced,
+                fuel, gear, lastLapTime, racePos, rpm, speedX, speedY, speedZ,
+                trackPos, z
+            ] + focus + track + opponents + wheelSpinVel + [
+                accel, brake, clutch, steer, inputs
+            ]
 
             return row
 
@@ -130,9 +159,6 @@ class Driver(object):
         
         # self.speed()
         
-        with open(self.logs_data, "a") as f:
-            f.write(msg + "\n")
-
         parsed_data = self.parse_message(msg)
         if parsed_data:
             with open(self.logs_data_csv, "a", newline="") as f:
