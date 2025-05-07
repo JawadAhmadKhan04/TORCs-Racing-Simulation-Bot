@@ -6,6 +6,9 @@ import csv
 import time
 import os
 import re
+import datetime
+import joblib
+import numpy as np
 
 class Driver(object):
     '''
@@ -15,28 +18,28 @@ class Driver(object):
     def __init__(self, stage):
         '''Constructor'''
         
-        self.logs_data_csv = "dataset.csv"
-        if not os.path.exists(self.logs_data_csv):
-            with open(self.logs_data_csv, "w", newline="") as f:
-                csv_writer = csv.writer(f)
-                csv_writer.writerow([
-                    "timestamp", "angle", "curLapTime", "damage", "distFromStart", "distRaced",
-                    "fuel", "gear", "lastLapTime", "racePos", "rpm", "speedX", "speedY", "speedZ",
-                    "trackPos", "z", "focus_0", "focus_1", "focus_2", "focus_3", "focus_4",
-                    "track_0", "track_1", "track_2", "track_3", "track_4", "track_5", "track_6",
-                    "track_7", "track_8", "track_9", "track_10", "track_11", "track_12", "track_13",
-                    "track_14", "track_15", "track_16", "track_17", "track_18",
-                    "opponent_0", "opponent_1", "opponent_2", "opponent_3", "opponent_4",
-                    "opponent_5", "opponent_6", "opponent_7", "opponent_8", "opponent_9",
-                    "opponent_10", "opponent_11", "opponent_12", "opponent_13", "opponent_14",
-                    "opponent_15", "opponent_16", "opponent_17", "opponent_18", "opponent_19",
-                    "opponent_20", "opponent_21", "opponent_22", "opponent_23", "opponent_24",
-                    "opponent_25", "opponent_26", "opponent_27", "opponent_28", "opponent_29",
-                    "opponent_30", "opponent_31", "opponent_32", "opponent_33", "opponent_34",
-                    "opponent_35",
-                    "wheelSpinVel_0", "wheelSpinVel_1", "wheelSpinVel_2", "wheelSpinVel_3",
-                    "accel", "brake", "clutch", "steer", "inputs"
-                ])
+        # self.logs_data_csv = "dataset.csv"
+        # if not os.path.exists(self.logs_data_csv):
+        #     with open(self.logs_data_csv, "w", newline="") as f:
+        #         csv_writer = csv.writer(f)
+        #         csv_writer.writerow([
+        #             "timestamp", "angle", "curLapTime", "damage", "distFromStart", "distRaced",
+        #             "fuel", "gear", "lastLapTime", "racePos", "rpm", "speedX", "speedY", "speedZ",
+        #             "trackPos", "z", "focus_0", "focus_1", "focus_2", "focus_3", "focus_4",
+        #             "track_0", "track_1", "track_2", "track_3", "track_4", "track_5", "track_6",
+        #             "track_7", "track_8", "track_9", "track_10", "track_11", "track_12", "track_13",
+        #             "track_14", "track_15", "track_16", "track_17", "track_18",
+        #             "opponent_0", "opponent_1", "opponent_2", "opponent_3", "opponent_4",
+        #             "opponent_5", "opponent_6", "opponent_7", "opponent_8", "opponent_9",
+        #             "opponent_10", "opponent_11", "opponent_12", "opponent_13", "opponent_14",
+        #             "opponent_15", "opponent_16", "opponent_17", "opponent_18", "opponent_19",
+        #             "opponent_20", "opponent_21", "opponent_22", "opponent_23", "opponent_24",
+        #             "opponent_25", "opponent_26", "opponent_27", "opponent_28", "opponent_29",
+        #             "opponent_30", "opponent_31", "opponent_32", "opponent_33", "opponent_34",
+        #             "opponent_35",
+        #             "wheelSpinVel_0", "wheelSpinVel_1", "wheelSpinVel_2", "wheelSpinVel_3",
+        #             "accel", "brake", "clutch", "steer", "inputs"
+        #         ])
         pygame.init()
         
         self.gear_change_delay = 500
@@ -63,6 +66,13 @@ class Driver(object):
         self.steering_movement = 0.1  
         self.braking = 0.3      
 
+        # Load trained model and scaler
+        self.model = joblib.load('torcs_mlp_model.joblib')
+        self.scaler = joblib.load('torcs_scaler.joblib')
+        # Define model input features
+        self.model_features = [
+            'angle', 'rpm', 'speedX', 'speedY', 'speedZ', 'trackPos'
+        ] + [f'track_{i}' for i in range(19)]
         
         pygame.display.set_mode((300, 300))
         pygame.display.set_caption("Controller")
@@ -93,7 +103,7 @@ class Driver(object):
                     parsed_data[key] = parsed_data[key][0]
 
             # Get current timestamp
-            timestamp = time.time()
+            timestamp = datetime.datetime.now().isoformat()
 
             # Extract control values
             accel = self.control.getAccel()
@@ -150,22 +160,44 @@ class Driver(object):
             print(f"Error parsing message: {e}")
             return None
     
+    def get_model_input(self):
+        """Extracts the model input features from the current car state."""
+        state = self.state
+        features = [
+            float(getattr(state, 'angle', 0)),
+            float(getattr(state, 'rpm', 0)),
+            float(getattr(state, 'speedX', 0)),
+            float(getattr(state, 'speedY', 0)),
+            float(getattr(state, 'speedZ', 0)),
+            float(getattr(state, 'trackPos', 0)),
+        ]
+        # Add track sensors
+        if hasattr(state, 'track') and len(state.track) == 19:
+            features += [float(x) for x in state.track]
+        else:
+            features += [0.0]*19
+        return features
+    
     def drive(self, msg):
         self.state.setFromMsg(msg)
         
-        # self.steer()
+        # Use model to predict controls
+        model_input = np.array(self.get_model_input()).reshape(1, -1)
+        model_input_scaled = self.scaler.transform(model_input)
+        accel, brake, steer = self.model.predict(model_input_scaled)[0]
+        self.control.setAccel(float(accel))
+        if hasattr(self.control, 'setBrake'):
+            self.control.setBrake(float(brake))
+        self.control.setSteer(float(steer))
         
-        # self.gear()
+        # parsed_data = self.parse_message(msg)
+        # if parsed_data:
+        #     with open(self.logs_data_csv, "a", newline="") as f:
+        #         csv_writer = csv.writer(f)
+        #         csv_writer.writerow(parsed_data)
         
-        # self.speed()
-        
-        parsed_data = self.parse_message(msg)
-        if parsed_data:
-            with open(self.logs_data_csv, "a", newline="") as f:
-                csv_writer = csv.writer(f)
-                csv_writer.writerow(parsed_data)
-        
-        self.controls()
+        # No manual controls, only model
+        # self.controls()
         
         return self.control.toMsg()
 
