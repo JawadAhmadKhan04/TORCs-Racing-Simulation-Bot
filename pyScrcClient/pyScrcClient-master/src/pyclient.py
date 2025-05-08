@@ -2,6 +2,7 @@ import sys
 import argparse
 import socket
 import driver
+import time
 
 if __name__ == '__main__':
     pass
@@ -41,13 +42,13 @@ except socket.error as msg:
     print('Could not make a socket.')
     sys.exit(-1)
 
-# one second timeout
-sock.settimeout(1.0)
+# 20ms timeout
+sock.settimeout(0.02)
 
 shutdownClient = False
 curEpisode = 0
 
-verbose = False
+verbose = False  # Enable for cycle time debugging
 
 d = driver.Driver(arguments.stage)
 
@@ -65,26 +66,38 @@ while not shutdownClient:
             
         try:
             buf, addr = sock.recvfrom(1000)
-            buf = buf.decode()  # Decode bytes to string
+            buf = buf.decode()
         except socket.error as msg:
-            print("didn't get response from server...")
+            if verbose:
+                print("Didn't get response from server during init...")
     
         if buf.find('***identified***') >= 0:
             print('Received: ', buf)
             break
 
     currentStep = 0
+    last_time = time.perf_counter()
     
     while True:
-        # wait for an answer from server
+        # Enforce 20ms cycle
+        current_time = time.perf_counter()
+        if (current_time - last_time) * 1000 < 20:
+            time.sleep((20 - (current_time - last_time) * 1000) / 1000)
+        cycle_time = (current_time - last_time) * 1000
+        last_time = current_time
+        if verbose:
+            print(f"Cycle time: {cycle_time:.2f}ms")
+
+        # Wait for server response
         buf = None
         try:
             buf, addr = sock.recvfrom(1000)
-            buf = buf.decode()  # Decode bytes to string
+            buf = buf.decode()
         except socket.error as msg:
-            print("didn't get response from server...")
+            if verbose:
+                print("Didn't get response from server...")
         
-        if verbose:
+        if verbose and buf:
             print('Received: ', buf)
         
         if buf is not None and buf.find('***shutdown***') >= 0:
@@ -119,6 +132,5 @@ while not shutdownClient:
     
     if curEpisode == arguments.max_episodes:
         shutdownClient = True
-        
 
 sock.close()
