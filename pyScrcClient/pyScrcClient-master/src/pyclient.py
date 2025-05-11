@@ -54,9 +54,9 @@ d = driver.Driver(arguments.stage)
 
 while not shutdownClient:
     while True:
-        print('Sending id to server: ', arguments.id)
+        # print('Sending id to server: ', arguments.id)
         buf = arguments.id + d.init()
-        print('Sending init string to server:', buf)
+        # print('Sending init string to server:', buf)
         
         try:
             sock.sendto(buf.encode(), (arguments.host_ip, arguments.host_port))
@@ -69,7 +69,8 @@ while not shutdownClient:
             buf = buf.decode()
         except socket.error as msg:
             if verbose:
-                print("Didn't get response from server during init...")
+                # print("Didn't get response from server during init...")
+                pass
     
         if buf.find('***identified***') >= 0:
             print('Received: ', buf)

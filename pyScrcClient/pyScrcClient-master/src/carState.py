@@ -185,6 +185,9 @@ class CarState(object):
     
     def setLastLapTime(self, lastLapTime):
         self.lastLapTime = lastLapTime
+        
+    def getLastLapTime(self):
+        return self.lastLapTime
     
     def setLastLapTimeD(self):
         self.lastLapTime = self.getFloatD('lastLapTime')
