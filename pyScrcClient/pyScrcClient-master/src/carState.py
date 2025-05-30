@@ -29,6 +29,8 @@ class CarState(object):
         self.trackPos = None
         self.wheelSpinVel = None
         self.z = None
+        self.track_curvature = None
+        self.track_width = None
     
     def setFromMsg(self, str_sensors):
         self.sensors = self.parser.parse(str_sensors)
@@ -52,7 +54,7 @@ class CarState(object):
         self.setTrackPosD()
         self.setWheelSpinVelD()
         self.setZD()
-    
+        
     def toMsg(self):
         self.sensors = {}
         
@@ -75,6 +77,8 @@ class CarState(object):
         self.sensors['trackPos'] = [self.trackPos]
         self.sensors['wheelSpinVel'] = self.wheelSpinVel
         self.sensors['z'] = [self.z]
+        self.sensors['track_curvature'] = self.track_curvature
+        self.sensors['track_width'] = self.track_width
         
         return self.parser.stringify(self.sensors)
     
@@ -113,6 +117,18 @@ class CarState(object):
             val = int(val[0])
         
         return val
+    
+    def setTrackCurvature(self, track_curvature):
+        self.track_curvature = track_curvature
+    
+    def setTrackWidth(self, track_width):
+        self.track_width = track_width
+
+    def getTrackCurvature(self):
+        return self.track_curvature
+    
+    def getTrackWidth(self):
+        return self.track_width
     
     def setAngle(self, angle):
         self.angle = angle
